@@ -21,6 +21,8 @@ body{
               radial-gradient(900px 500px at 100% 0%, rgba(244,114,182,.12), transparent),
               var(--bg);
   color:var(--text);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .hidden{ display:none !important; }
@@ -32,7 +34,7 @@ body{
   background: rgba(11,18,32,.75);
   backdrop-filter: blur(10px);
   border-bottom:1px solid rgba(31,42,68,.6);
-  padding: 12px 14px;
+  padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
   display:flex;
   gap: 12px;
   align-items:center;
@@ -310,7 +312,7 @@ input:focus, textarea:focus, select:focus{
   .layout{ grid-template-columns: 1fr; }
   .sidebar{
     position: fixed;
-    top: 58px;
+    top: calc(58px + env(safe-area-inset-top));
     left: 0;
     bottom: 0;
     width: 290px;
@@ -318,25 +320,39 @@ input:focus, textarea:focus, select:focus{
     transform: translateX(-105%);
     transition: transform .18s ease;
     z-index: 30;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
   }
   .sidebar.open{ transform: translateX(0); }
   .search{ width: 46vw; }
 }
-/* Gate (password overlay) */
-.gate{
-  position: fixed;
-  inset:0;
-  z-index:100;
-  background: rgba(0,0,0,.75);
-  backdrop-filter: blur(8px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 20px;
-}
 
-.gate__panel{
-  background: var(--panel);
+@media (max-width: 640px){
+  .topbar{
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .topbar__left,
+  .topbar__right{
+    width: 100%;
+  }
+  .topbar__right{
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .brand__subtitle{
+    display: none;
+  }
+  .search{
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  .btn,
+  .iconbtn{
+    min-height: 40px;
+  }
+}
+/* Gate (password overlay) */
 .gate{
   position: fixed;
   inset: 0;
@@ -348,6 +364,9 @@ input:focus, textarea:focus, select:focus{
   justify-content: center;
   padding: 20px;
 }
+
+.gate__panel{
+  background: var(--panel);
 
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -400,4 +419,3 @@ input:focus, textarea:focus, select:focus{
   cursor:pointer;
 }
 .gate__btn:active{ transform: translateY(1px); }
-
