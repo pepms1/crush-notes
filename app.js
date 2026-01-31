@@ -7,6 +7,18 @@
 
 const STORAGE_KEY = "crush_book_v1";
 
+// Password gate constant: change this value to require a different password
+// before acceder a la aplicación.
+const PASSWORD = "230713";
+
+// Firebase Realtime Database URL (sin barra final). Ejemplo:
+// "https://tu-proyecto-default-rtdb.firebaseio.com"
+// Si se deja vacío (""), la app solo usará LocalStorage.
+// URL de tu base de datos Realtime en Firebase (sin barra final).
+// Actualiza esto con la URL de tu base de datos. Ejemplo:
+// "https://crush-notes-default-rtdb.firebaseio.com"
+const FIREBASE_DB_URL = "https://crush-notes-default-rtdb.firebaseio.com";
+
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, cls) => {
   const n = document.createElement(tag);
@@ -42,13 +54,46 @@ function defaultData() {
   };
 }
 
-function loadData() {
+async function loadData() {
+  // Intenta cargar desde Firebase si está configurado
+  if (FIREBASE_DB_URL) {
+    try {
+      const res = await fetch(`${FIREBASE_DB_URL}/data.json`);
+      if (res.ok) {
+        const remote = await res.json();
+        // Validar estructura mínima
+        if (remote && Array.isArray(remote.categories)) {
+          // Normalización de datos remotos
+          for (const c of remote.categories) {
+            c.id ??= uid();
+            c.name ??= "Sin nombre";
+            c.emoji ??= "📁";
+            c.items ??= [];
+            if (!Array.isArray(c.items)) c.items = [];
+            for (const it of c.items) {
+              it.id ??= uid();
+              it.key ??= "";
+              it.value ??= "";
+              it.note ??= "";
+              it.createdAt ??= nowISO();
+              it.updatedAt ??= nowISO();
+            }
+          }
+          remote.version ??= 1;
+          remote.createdAt ??= nowISO();
+          remote.updatedAt ??= nowISO();
+          return remote;
+        }
+      }
+    } catch (err) {
+      console.error("Error loading data from Firebase", err);
+    }
+  }
+  // Fallback a LocalStorage
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultData();
     const parsed = JSON.parse(raw);
-
-    // Migraciones simples
     if (!parsed.categories || !Array.isArray(parsed.categories)) {
       return defaultData();
     }
@@ -60,9 +105,24 @@ function loadData() {
   }
 }
 
-function saveData() {
+async function saveData() {
   state.data.updatedAt = nowISO();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  // Guardar en LocalStorage como respaldo
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  } catch {}
+  // Guardar en Firebase si está configurado
+  if (FIREBASE_DB_URL) {
+    try {
+      await fetch(`${FIREBASE_DB_URL}/data.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.data),
+      });
+    } catch (err) {
+      console.error("Error saving data to Firebase", err);
+    }
+  }
 }
 
 function getCategoryById(id) {
@@ -86,7 +146,7 @@ function escapeForDownloadFilename(s) {
 }
 
 const state = {
-  data: loadData(),
+  data: null, // Se establecerá tras la contraseña
   route: { page: "overview", categoryId: null },
   search: "",
   editingItem: null, // {categoryId, itemId}
@@ -95,7 +155,7 @@ const state = {
 /* ---------- Rendering ---------- */
 
 function renderSidebar() {
-  const list = document.querySelector("#categoryList");
+  const list = $("#categoryList");
   list.innerHTML = "";
 
   for (const c of state.data.categories) {
@@ -115,8 +175,8 @@ function highlightActiveNav() {
   document.querySelectorAll(".navlink").forEach(n => n.classList.remove("active"));
 
   const hash = location.hash || "#/overview";
-  if (hash.startsWith("#/overview")) document.querySelector("#linkOverview").classList.add("active");
-  else if (hash.startsWith("#/all")) document.querySelector("#linkAll").classList.add("active");
+  if (hash.startsWith("#/overview")) $("#linkOverview").classList.add("active");
+  else if (hash.startsWith("#/all")) $("#linkAll").classList.add("active");
   else if (hash.startsWith("#/cat/")) {
     const catId = hash.split("/")[2];
     const link = document.querySelector(`.navlink[data-cat-id="${catId}"]`);
@@ -125,7 +185,7 @@ function highlightActiveNav() {
 }
 
 function renderCategorySelect() {
-  const sel = document.querySelector("#itemCategory");
+  const sel = $("#itemCategory");
   sel.innerHTML = "";
 
   for (const c of state.data.categories) {
@@ -137,15 +197,15 @@ function renderCategorySelect() {
 }
 
 function setPageTitle(text) {
-  document.querySelector("#pageTitle").textContent = text;
+  $("#pageTitle").textContent = text;
 }
 
 function showEmpty(show) {
-  document.querySelector("#emptyState").classList.toggle("hidden", !show);
+  $("#emptyState").classList.toggle("hidden", !show);
 }
 
 function renderCardsForItems(items, title) {
-  const cards = document.querySelector("#cards");
+  const cards = $("#cards");
   cards.innerHTML = "";
 
   setPageTitle(title);
@@ -284,24 +344,24 @@ function render() {
 /* ---------- Modales ---------- */
 
 function openModal(id) {
-  document.querySelector(id).classList.remove("hidden");
+  $(id).classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
 function closeModal(id) {
-  document.querySelector(id).classList.add("hidden");
+  $(id).classList.add("hidden");
   document.body.style.overflow = "";
 }
 
 function openAddItem(defaultCatId = null) {
   state.editingItem = null;
-  document.querySelector("#itemModalTitle").textContent = "Agregar dato";
-  document.querySelector("#itemForm").reset();
+  $("#itemModalTitle").textContent = "Agregar dato";
+  $("#itemForm").reset();
 
   renderCategorySelect();
-  if (defaultCatId) document.querySelector("#itemCategory").value = defaultCatId;
+  if (defaultCatId) $("#itemCategory").value = defaultCatId;
 
   openModal("#itemModal");
-  document.querySelector("#itemKey").focus();
+  $("#itemKey").focus();
 }
 
 function openEditItem(categoryId, itemId) {
@@ -311,25 +371,25 @@ function openEditItem(categoryId, itemId) {
   if (!item) return;
 
   state.editingItem = { categoryId, itemId };
-  document.querySelector("#itemModalTitle").textContent = "Editar dato";
+  $("#itemModalTitle").textContent = "Editar dato";
 
   renderCategorySelect();
-  document.querySelector("#itemCategory").value = categoryId;
-  document.querySelector("#itemKey").value = item.key || "";
-  document.querySelector("#itemValue").value = item.value || "";
-  document.querySelector("#itemNote").value = item.note || "";
+  $("#itemCategory").value = categoryId;
+  $("#itemKey").value = item.key || "";
+  $("#itemValue").value = item.value || "";
+  $("#itemNote").value = item.note || "";
 
   openModal("#itemModal");
-  document.querySelector("#itemKey").focus();
+  $("#itemKey").focus();
 }
 
 function submitItemForm(e) {
   e.preventDefault();
 
-  const categoryId = document.querySelector("#itemCategory").value;
-  const key = document.querySelector("#itemKey").value.trim();
-  const value = document.querySelector("#itemValue").value.trim();
-  const note = document.querySelector("#itemNote").value.trim();
+  const categoryId = $("#itemCategory").value;
+  const key = $("#itemKey").value.trim();
+  const value = $("#itemValue").value.trim();
+  const note = $("#itemNote").value.trim();
 
   if (!categoryId || !key || !value) return;
 
@@ -398,16 +458,16 @@ function deleteItem(categoryId, itemId) {
 }
 
 function openAddCategory() {
-  document.querySelector("#catForm").reset();
-  document.querySelector("#catEmoji").value = "📁";
+  $("#catForm").reset();
+  $("#catEmoji").value = "📁";
   openModal("#catModal");
-  document.querySelector("#catName").focus();
+  $("#catName").focus();
 }
 
 function submitCategoryForm(e) {
   e.preventDefault();
-  const name = document.querySelector("#catName").value.trim();
-  let emoji = (document.querySelector("#catEmoji").value || "📁").trim();
+  const name = $("#catName").value.trim();
+  let emoji = ($("#catEmoji").value || "📁").trim();
   if (!emoji) emoji = "📁";
   if (!name) return;
 
@@ -460,7 +520,7 @@ function importJSONFile(file) {
         }
       }
 
-      const ok = confirm("\u00bfImportar y reemplazar lo actual?\n\nTip: exporta antes por si acaso.");
+      const ok = confirm("¿Importar y reemplazar lo actual?\n\nTip: exporta antes por si acaso.");
       if (!ok) return;
 
       state.data = parsed;
@@ -478,7 +538,7 @@ function importJSONFile(file) {
 }
 
 function wipeAll() {
-  const ok = confirm("\u00bfBorrar TODO?\n\nEsto no se puede deshacer (a menos que tengas un export).");
+  const ok = confirm("¿Borrar TODO?\n\nEsto no se puede deshacer (a menos que tengas un export).");
   if (!ok) return;
 
   localStorage.removeItem(STORAGE_KEY);
@@ -493,12 +553,12 @@ function wipeAll() {
 /* ---------- UI wiring ---------- */
 
 function toggleSidebar() {
-  document.querySelector("#sidebar").classList.toggle("open");
+  $("#sidebar").classList.toggle("open");
 }
 
 function closeSidebarOnMobile() {
   if (window.matchMedia("(max-width: 880px)").matches) {
-    document.querySelector("#sidebar").classList.remove("open");
+    $("#sidebar").classList.remove("open");
   }
 }
 
@@ -508,41 +568,41 @@ function wireEvents() {
     parseRoute();
   });
 
-  document.querySelector("#btnToggleNav").addEventListener("click", toggleSidebar);
+  $("#btnToggleNav").addEventListener("click", toggleSidebar);
 
-  document.querySelector("#btnAddItem").addEventListener("click", () => openAddItem(state.route.categoryId));
-  document.querySelector("#btnAddItemEmpty").addEventListener("click", () => openAddItem(state.route.categoryId));
+  $("#btnAddItem").addEventListener("click", () => openAddItem(state.route.categoryId));
+  $("#btnAddItemEmpty").addEventListener("click", () => openAddItem(state.route.categoryId));
 
-  document.querySelector("#btnAddCategory").addEventListener("click", openAddCategory);
+  $("#btnAddCategory").addEventListener("click", openAddCategory);
 
-  document.querySelector("#btnCloseItemModal").addEventListener("click", () => closeModal("#itemModal"));
-  document.querySelector("#btnCancelItem").addEventListener("click", () => closeModal("#itemModal"));
-  document.querySelector("#itemForm").addEventListener("submit", submitItemForm);
+  $("#btnCloseItemModal").addEventListener("click", () => closeModal("#itemModal"));
+  $("#btnCancelItem").addEventListener("click", () => closeModal("#itemModal"));
+  $("#itemForm").addEventListener("submit", submitItemForm);
 
-  document.querySelector("#btnCloseCatModal").addEventListener("click", () => closeModal("#catModal"));
-  document.querySelector("#btnCancelCat").addEventListener("click", () => closeModal("#catModal"));
-  document.querySelector("#catForm").addEventListener("submit", submitCategoryForm);
+  $("#btnCloseCatModal").addEventListener("click", () => closeModal("#catModal"));
+  $("#btnCancelCat").addEventListener("click", () => closeModal("#catModal"));
+  $("#catForm").addEventListener("submit", submitCategoryForm);
 
-  document.querySelector("#btnTools").addEventListener("click", () => openModal("#toolsModal"));
-  document.querySelector("#btnCloseToolsModal").addEventListener("click", () => closeModal("#toolsModal"));
+  $("#btnTools").addEventListener("click", () => openModal("#toolsModal"));
+  $("#btnCloseToolsModal").addEventListener("click", () => closeModal("#toolsModal"));
 
-  document.querySelector("#btnExport").addEventListener("click", exportJSON);
-  document.querySelector("#importFile").addEventListener("change", (e) => {
+  $("#btnExport").addEventListener("click", exportJSON);
+  $("#importFile").addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (file) importJSONFile(file);
     e.target.value = "";
   });
-  document.querySelector("#btnWipe").addEventListener("click", wipeAll);
+  $("#btnWipe").addEventListener("click", wipeAll);
 
-  document.querySelector("#searchInput").addEventListener("input", (e) => {
+  $("#searchInput").addEventListener("input", (e) => {
     state.search = e.target.value || "";
     render();
   });
 
   // Cerrar modal si tocan fondo oscuro
   ["#itemModal", "#catModal", "#toolsModal"].forEach(id => {
-    document.querySelector(id).addEventListener("click", (e) => {
-      if (e.target === document.querySelector(id)) closeModal(id);
+    $(id).addEventListener("click", (e) => {
+      if (e.target === $(id)) closeModal(id);
     });
   });
 
@@ -556,9 +616,9 @@ function wireEvents() {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       ["#itemModal", "#catModal", "#toolsModal"].forEach(id => {
-        if (!document.querySelector(id).classList.contains("hidden")) closeModal(id);
+        if (!$(id).classList.contains("hidden")) closeModal(id);
       });
-      document.querySelector("#sidebar").classList.remove("open");
+      $("#sidebar").classList.remove("open");
     }
   });
 }
@@ -571,11 +631,49 @@ function registerSW() {
 }
 
 /* ---------- Boot ---------- */
-function boot() {
+async function boot() {
+  // Asegurarse de tener datos cargados
+  if (!state.data) {
+    state.data = await loadData();
+  }
   renderSidebar();
   wireEvents();
   parseRoute();
   registerSW();
 }
 
-boot();
+/* ---------- Password Gate ---------- */
+function initPasswordGate() {
+  const gate = $("#passwordGate");
+  // Si no existe gate (por ejemplo, pruebas unitarias), saltamos directamente
+  if (!gate) {
+    (async () => {
+      state.data = await loadData();
+      boot();
+    })();
+    return;
+  }
+  gate.classList.remove("hidden");
+  const input = $("#passwordInput");
+  const submit = $("#passwordSubmit");
+  const error = $("#passwordError");
+  submit.addEventListener("click", async () => {
+    if (input.value === PASSWORD) {
+      gate.remove();
+      state.data = await loadData();
+      boot();
+    } else {
+      error.textContent = "Contraseña incorrecta.";
+      input.value = "";
+      input.focus();
+    }
+  });
+  input.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      submit.click();
+    }
+  });
+}
+
+// Iniciar la puerta de contraseña al cargar el script
+initPasswordGate();
