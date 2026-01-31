@@ -17,7 +17,7 @@ const PASSWORD = "230713";
 // URL de tu base de datos Realtime en Firebase (sin barra final).
 // Actualiza esto con la URL de tu base de datos. Ejemplo:
 // "https://crush-notes-default-rtdb.firebaseio.com"
-const FIREBASE_DB_URL = "https://crush-notes-default-rtdb.firebaseio.com";
+const FIREBASE_DB_URL = "https://crush-notes-default-rtdb.firebaseio.com.com";
 
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, cls) => {
