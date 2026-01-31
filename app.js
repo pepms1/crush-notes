@@ -675,6 +675,6 @@ function initPasswordGate() {
   });
 }
 
-// Iniciar la puerta de contraseña al cargar el script
-d// ocdocument.addEventListener("DOMContentLoaded", initPasswordGate);
+// Iniciar la puerta de contraseña al cargar el script cuando el DOM esté listo
+// Adjuntar initPasswordGate al evento DOMContentLoaded para asegurar que el gate exista
 document.addEventListener("DOMContentLoaded", initPasswordGate);
