@@ -1,0 +1,10 @@
+{
+  "name": "Cuaderno de Datos",
+  "short_name": "Cuaderno",
+  "start_url": "./#/overview",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#111827",
+  "description": "Notas por categorías guardadas localmente (sin servidor).",
+  "icons": []
+}
