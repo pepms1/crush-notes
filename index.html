@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="description" content="Cuaderno de datos organizado por categorías (local, privado, sin servidor)." />
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAA..." />
+  <title>Cuaderno de Datos</title>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="topbar__left">
+      <button class="iconbtn" id="btnToggleNav" aria-label="Abrir/cerrar menú">☰</button>
+      <div class="brand">
+        <div class="brand__title">Cuaderno de Datos</div>
+        <div class="brand__subtitle">Organiza por categorías: comida, cumpleaños, gustos…</div>
+      </div>
+    </div>
+
+    <div class="topbar__right">
+      <input id="searchInput" class="search" type="search" placeholder="Buscar (en todo)..." autocomplete="off" />
+      <button class="btn" id="btnAddItem">+ Agregar</button>
+      <button class="btn btn--ghost" id="btnTools">⚙˜</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar__section">
+        <div class="sidebar__title">Vistas</div>
+        <a class="navlink" href="#/overview" id="linkOverview">📜 Resumen</a>
+        <a class="navlink" href="#/all" id="linkAll">🗒️ Todo</a>
+      </div>
+
+      <div class="sidebar__section">
+        <div class="sidebar__row">
+          <div class="sidebar__title">Categorías</div>
+          <button class="iconbtn" id="btnAddCategory" aria-label="Agregar categoría">＋</button>
+        </div>
+        <div id="categoryList" class="categoryList"></div>
+      </div>
+
+      <div class="sidebar__section sidebar__footer">
+        <div class="hint">
+          🔒 Se guarda **solo en este dispositivo**.<br/>
+          Usa ⚙˜ para Exportar/Importar.
+        </div>
+      </div>
+    </nav>
+
+    <main class="content">
+      <div id="pageTitle" class="pageTitle"></div>
+
+      <div id="emptyState" class="emptyState hidden">
+        <div class="emptyState__emoji">📝</div>
+        <div class="emptyState__title">Aún no hay datos aquí</div>
+        <div class="emptyState__text">Agrega el primer dato y se irá organizando por categorías.</div>
+        <button class="btn" id="btnAddItemEmpty">+ Agregar dato</button>
+      </div>
+
+      <section id="cards" class="cards"></section>
+    </main>
+  </div>
+
+  <!-- Modal: Agregar/Editar dato -->
+  <div class="modal hidden" id="itemModal" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="itemModalTitle">Agregar dato</div>
+          <div class="modal__subtitle">Ej: “Comida favorita → sushi”</div>
+        </div>
+        <button class="iconbtn" id="btnCloseItemModal" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="itemForm" class="form">
+        <label class="field">
+          <span>Categoría</span>
+          <select id="itemCategory" required></select>
+        </label>
+
+        <div class="grid2">
+          <label class="field">
+            <span>Etiqueta (qué es)</span>
+            <input id="itemKey" type="text" placeholder="Ej: Comida favorita" maxlength="60" required />
+          </label>
+
+          <label class="field">
+            <span>Valor</span>
+            <input id="itemValue" type="text" placeholder="Ej: Sushi" maxlength="120" required />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Nota (opcional)</span>
+          <textarea id="itemNote" rows="3" placeholder="Ej: le gusta con salsa de soya…"></textarea>
+        </label>
+
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" id="btnCancelItem">Cancelar</button>
+          <button type="submit" class="btn" id="btnSaveItem">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Categoría -->
+  <div class="modal hidden" id="catModal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="catModalTitle">Nueva categoría</div>
+          <div class="modal__subtitle">Ej: “🍜 Comida” o “🎂 Cumpleaños”</div>
+        </div>
+        <button class="iconbtn" id="btnCloseCatModal" aria-label="Cerrar">✕</button>
+      </div>
+
+      <form id="catForm" class="form">
+        <div class="grid2">
+          <label class="field">
+            <span>Emoji</span>
+            <input id="catEmoji" type="text" placeholder="🍕" maxlength="2" />
+          </label>
+          <label class="field">
+            <span>Nombre</span>
+            <input id="catName" type="text" placeholder="Comida" maxlength="30" required />
+          </label>
+        </div>
+
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" id="btnCancelCat">Cancelar</button>
+          <button type="submit" class="btn">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Herramientas -->
+  <div class="modal hidden" id="toolsModal" role="dialog" aria-modal="true" aria-labelledby="toolsModalTitle">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="toolsModalTitle">Herramientas</div>
+          <div class="modal__subtitle">Respaldo, restauración y limpieza</div>
+        </div>
+        <button class="iconbtn" id="btnCloseToolsModal" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="tools">
+        <button class="btn" id="btnExport">⬇️ Exportar (JSON)</button>
+        <label class="btn btn--ghost" for="importFile" style="cursor:pointer;">
+          ⬆️ Importar (JSON)
+        </label>
+        <input id="importFile" type="file" accept="application/json" class="hidden" />
+
+        <hr class="sep"/>
+
+        <button class="btn btn--danger" id="btnWipe">💨 Borrar todo</button>
+
+        <div class="hint" style="margin-top:10px;">
+          Exportar te crea un archivo para pasar los datos a otro dispositivo.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
